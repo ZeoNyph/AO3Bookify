@@ -66,7 +66,7 @@ h2 {
 }
 p {
   hyphens: auto;
-  margin: 0;
+  margin: 0 0 0.4em;
   text-align: justify;
   text-indent: 1em;
 }
