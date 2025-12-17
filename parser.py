@@ -140,7 +140,7 @@ def get_fic_metadata(contents: BeautifulSoup) -> dict:
 def init_parser():
     global parser
     parser = ArgumentParser(
-        prog="AO3 HTML Parser",
+        prog="AO3Bookify",
         description="Python program that parses a HTML download of an AO3 fic."
     )
     parser.add_argument('file')

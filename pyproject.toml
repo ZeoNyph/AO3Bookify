@@ -1,0 +1,10 @@
+[project]
+name = "ao3bookify"
+version = "0.1.0"
+description = "Python program that parses a HTML download of an AO3 fic."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "weasyprint>=67.0",
+]
