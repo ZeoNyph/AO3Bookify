@@ -24,7 +24,7 @@ pdf_stylesheet : str = """
   @top-right { content: none }
   @top-left { content: none }
 }
-@page clean {
+@page :clean {
   @top-right { content: none }
   @top-left { content: none }
 }
@@ -56,8 +56,6 @@ h1 {
 }
 h2 {
   break-before: always;
-  /* Older property for compatibility */
-  page-break-before: always; 
   font-size: 1.4em;
   font-variant: small-caps;
   font-weight: normal;
@@ -69,7 +67,7 @@ h2 {
 p {
   hyphens: auto;
   margin: 0;
-  #text-align: justify;
+  text-align: justify;
   text-indent: 1em;
 }
 dd {
@@ -126,6 +124,18 @@ def write_to_pdf(input: BeautifulSoup, filepath: str):
         filepath += ".pdf"
     css = CSS(string=pdf_stylesheet)
     HTML(string=str(input)).write_pdf(target=filepath, stylesheets=[css])
+    print(f"File saved at: {os.path.abspath(filepath)}")
+
+def get_fic_metadata(contents: BeautifulSoup) -> dict:
+    
+    title = contents.find("div", class_="meta").h1.get_text().strip() if contents.find("div", class_="meta") else None
+    if not title:
+      title = contents.find("div", class_={"preface", "group"}).h2.get_text().strip()
+    author = contents.find("a", rel="author").get_text().strip()
+    return {
+        "title": title,
+        "author": author
+    }
 
 def init_parser():
     global parser
@@ -138,8 +148,6 @@ def init_parser():
     parser.add_argument('--no-notes', action='store_true', default=False, help="Remove author notes from the output.")
     return parser
 
-
-
 ## Main loop
 
 if __name__ == "__main__":
@@ -148,13 +156,15 @@ if __name__ == "__main__":
 
     with open(os.path.abspath(args.file), 'rt') as fic:
         parsed_html = BeautifulSoup(fic, "lxml")
+        data = get_fic_metadata(parsed_html)
+        print(f"Bookifying {data['title']} by {data['author']}")
         contents = parsed_html.find('div', id="chapters")
         if args.no_notes:
             contents = remove_author_notes(contents)
         contents = remove_chapter_text_headings(contents)
         contents = format_headings(contents)
 
-    filepath = "fic.pdf" if args.output is None else args.output
+    filepath = f"{data["title"]}.pdf" if args.output is None else args.output
     write_to_pdf(contents, filepath=filepath)
         
     
