@@ -11,12 +11,12 @@ pdf_stylesheet : str = """
   size: 110mm 170mm;
 }
 @page :left {
-  margin: 12mm 10mm 20mm 15mm;
+  margin: 12mm 10mm 20mm 10mm;
   @bottom-left { content: counter(page) }
   @top-right { content: string(heading); font-variant: small-caps }
 }
 @page :right {
-  margin: 12mm 20mm 12mm 10mm;
+  margin: 12mm 10mm 20mm 10mm;
   @top-left { content: string(heading); font-variant: small-caps }
   @bottom-right { content: counter(page) }
 }
