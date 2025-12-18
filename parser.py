@@ -106,7 +106,7 @@ def is_heading(css_class) -> bool:
 ## Helper functions
 
 
-def remove_author_notes(contents: BeautifulSoup) -> BeautifulSoup:
+def remove_author_notes(contents: BeautifulSoup):
     notes = contents.find_all("div", class_=is_note)
     for note in notes:
         head = note.find("h2", class_="heading")
@@ -114,32 +114,28 @@ def remove_author_notes(contents: BeautifulSoup) -> BeautifulSoup:
         if head:
             note.insert_before(head)
         note.decompose()
-    return contents
 
 
-def remove_chapter_text_headings(contents: BeautifulSoup) -> BeautifulSoup:
+def remove_chapter_text_headings(contents: BeautifulSoup):
     chp_text_headings = contents.find_all("h3", string="Chapter Text")
     for hd in chp_text_headings:
         hd.decompose()
-    return contents
 
 
-def format_headings(contents: BeautifulSoup) -> BeautifulSoup:
+def format_headings(contents: BeautifulSoup):
     headings = contents.find_all(class_=is_heading)
     for heading in headings:
         a_text = heading.a.extract().get_text() if heading.a else ""
         heading_text = heading.get_text()
         heading.string = a_text + heading_text.strip()
         heading.name = "strong" if heading.find_parent(is_note) else "h2"
-    return contents
 
 
-def remove_whitespace_paragraphs(contents: BeautifulSoup) -> BeautifulSoup:
+def remove_whitespace_paragraphs(contents: BeautifulSoup):
     ws = contents.find_all("p")
     for para in ws:
         if para.get_text(strip=True) == "" and len(para.find_all(recursive=False)) == 0:
             para.decompose()
-    return contents
 
 
 def write_to_pdf(input: BeautifulSoup, filepath: str):
@@ -225,10 +221,10 @@ if __name__ == "__main__":
         print(f"Bookifying {data['title']} by {data['author']}")
         contents = parsed_html.find("div", id="chapters")
         if args.no_notes:
-            contents = remove_author_notes(contents)
-        contents = remove_chapter_text_headings(contents)
-        contents = format_headings(contents)
-        contents = remove_whitespace_paragraphs(contents)
+            remove_author_notes(contents)
+        remove_chapter_text_headings(contents)
+        format_headings(contents)
+        remove_whitespace_paragraphs(contents)
 
         filepath = f"{data["title"]}.pdf" if args.output is None else args.output
         write_to_pdf(contents, filepath=filepath)
