@@ -1,8 +1,7 @@
+import os, platform, requests
 from bs4 import BeautifulSoup, Tag
 from argparse import ArgumentParser, Namespace
-from weasyprint import HTML, CSS
 from urllib.parse import urlparse
-import os, platform, requests
 
 parser: ArgumentParser
 args: Namespace
@@ -215,6 +214,12 @@ if __name__ == "__main__":
     try:
         init_parser()
         args = parser.parse_args()
+
+        # Temporary
+        if platform.system() == "Windows":
+          print("AO3Bookify is currently unsupported for Windows. Exiting...")
+          exit(1)
+        from weasyprint import HTML, CSS
 
         parsed_html = parse_fic(args.path)
         data = get_fic_metadata(parsed_html)
