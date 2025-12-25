@@ -1,10 +1,14 @@
-import os, platform, requests
+import os, platform, requests, subprocess
 from bs4 import BeautifulSoup, Tag
 from argparse import ArgumentParser, Namespace
 from urllib.parse import urlparse
+from playwright.sync_api import sync_playwright, Playwright
 
 parser: ArgumentParser
 args: Namespace
+
+is_temp: bool = False
+filepath: str
 
 pdf_stylesheet: str = """
 @page {
@@ -137,12 +141,20 @@ def remove_whitespace_paragraphs(contents: BeautifulSoup):
             para.decompose()
 
 
-def write_to_pdf(input: BeautifulSoup, filepath: str):
-    if not filepath.endswith(".pdf"):
-        filepath += ".pdf"
-    css = CSS(string=pdf_stylesheet)
-    HTML(string=str(input)).write_pdf(target=filepath, stylesheets=[css])
-    print(f"File saved at: {os.path.abspath(filepath)}")
+def write_to_pdf(input: BeautifulSoup, output: str):
+    # if not filepath.endswith(".pdf"):
+    #     filepath += ".pdf"
+    # css = CSS(string=pdf_stylesheet)
+    # HTML(string=str(input)).write_pdf(target=filepath, stylesheets=[css])
+    # print(f"File saved at: {os.path.abspath(filepath)}")
+    with sync_playwright() as playwright:
+        chr = playwright.chromium
+        browser = chr.launch()
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto(f"file://{filepath}")
+        page.pdf(path=output)
+        exit(0)
 
 
 def get_fic_metadata(contents: BeautifulSoup) -> dict:
@@ -178,6 +190,8 @@ def init_parser():
 
 
 def get_from_url(url: str) -> str:
+    global is_temp
+    is_temp = True
     parsed_url = urlparse(url)
     relative_path = parsed_url.path
     if "chapters" in relative_path:
@@ -186,11 +200,19 @@ def get_from_url(url: str) -> str:
         parsed_url = parsed_url._replace(path=relative_path)
     if not parsed_url.query.startswith("view_full_work"):
         parsed_url = parsed_url._replace(query="view_full_work=true")
-    return requests.get(parsed_url.geturl()).text
+    contents = requests.get(parsed_url.geturl())
+    if os.path.exists("./tmp.html"):
+        os.remove("./tmp.html")
+    with open("./tmp.html", "x", encoding="utf8") as file:
+        file.write(contents.text)
+    return get_from_file("./tmp.html")
 
 
-def get_from_file(filepath: str) -> str:
-    with open(os.path.abspath(filepath), "rt") as fic:
+def get_from_file(file: str) -> str:
+    global filepath
+    filepath = os.path.abspath(file)
+    print(filepath)
+    with open(filepath, "rt", encoding="utf8") as fic:
         return fic.read()
 
 
@@ -215,11 +237,10 @@ if __name__ == "__main__":
         init_parser()
         args = parser.parse_args()
 
-        # Temporary
-        if platform.system() == "Windows":
-          print("AO3Bookify is currently unsupported for Windows. Exiting...")
-          exit(1)
-        from weasyprint import HTML, CSS
+        proc = subprocess.run(['uv', 'run', 'playwright', 'install', '--list'], stdout=subprocess.PIPE)
+        if proc.stdout.decode().strip() == "":
+            print("Installing Playwright dependencies for PDF conversion...")
+            subprocess.run(['uv', 'run', 'playwright', 'install', 'chromium'])
 
         parsed_html = parse_fic(args.path)
         data = get_fic_metadata(parsed_html)
@@ -231,8 +252,8 @@ if __name__ == "__main__":
         format_headings(contents)
         remove_whitespace_paragraphs(contents)
 
-        filepath = f"{data["title"]}.pdf" if args.output is None else args.output
-        write_to_pdf(contents, filepath=filepath)
+        output = f"{data["title"]}.pdf" if args.output is None else args.output
+        write_to_pdf(contents, output)
     except KeyboardInterrupt:
         print("\nExiting AO3Bookify...")
         exit(1)
