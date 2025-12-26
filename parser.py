@@ -1,8 +1,12 @@
-import os, platform, requests, subprocess
-from bs4 import BeautifulSoup, Tag
+import os
+import platform
+import subprocess
 from argparse import ArgumentParser, Namespace
 from urllib.parse import urlparse
-from playwright.sync_api import sync_playwright, Playwright
+
+import requests
+from bs4 import BeautifulSoup, Tag
+from playwright.sync_api import sync_playwright
 
 parser: ArgumentParser
 args: Namespace
@@ -23,7 +27,21 @@ def is_heading(css_class) -> bool:
     return css_class is not None and ("heading" in css_class or "title" in css_class)
 
 
+def is_summary(css_class) -> bool:
+    return css_class is not None and "summary" in css_class
+
+
 ## Helper functions
+
+
+def remove_summary(contents: BeautifulSoup):
+    summaries = contents.find_all("div", attrs=is_summary)
+    for summary in summaries:
+        head = summary.find("h2", class_="heading")
+
+        if head:
+            summary.insert_before(head)
+        summary.decompose()
 
 
 def remove_author_notes(contents: BeautifulSoup):
@@ -148,6 +166,16 @@ def parse_fic(path: str) -> BeautifulSoup:
     return BeautifulSoup(content, "lxml")
 
 
+def check_playwright():
+    proc = subprocess.run(
+        ["uv", "run", "playwright", "install", "--list"], stdout=subprocess.PIPE
+    )
+    out = proc.stdout.decode().strip()
+    if out == "" or proc.returncode != 0:
+        print("Installing Playwright dependencies for PDF conversion...")
+        subprocess.run(["uv", "run", "playwright", "install", "chromium"])
+
+
 ## Main loop
 
 if __name__ == "__main__":
@@ -155,12 +183,7 @@ if __name__ == "__main__":
         init_parser()
         args = parser.parse_args()
 
-        proc = subprocess.run(
-            ["uv", "run", "playwright", "install", "--list"], stdout=subprocess.PIPE
-        )
-        if proc.stdout.decode().strip() == "":
-            print("Installing Playwright dependencies for PDF conversion...")
-            subprocess.run(["uv", "run", "playwright", "install", "chromium"])
+        check_playwright()
 
         parsed_html = parse_fic(args.path)
         data = get_fic_metadata(parsed_html)
@@ -169,12 +192,13 @@ if __name__ == "__main__":
         # Format document
         if args.no_notes:
             remove_author_notes(contents)
+        remove_summary(contents)
         remove_chapter_text_headings(contents)
         format_headings(contents)
         remove_whitespace_paragraphs(contents)
         inject_css(contents)
 
-        output = f"{data["title"]}.pdf" if args.output is None else args.output
+        output = f"{data['title']}.pdf" if args.output is None else args.output
         write_to_pdf(contents, output)
     except KeyboardInterrupt:
         print("\nExiting AO3Bookify...")
