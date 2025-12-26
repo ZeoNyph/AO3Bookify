@@ -1,12 +1,13 @@
 import os
-import platform
 import subprocess
+import sys
 from argparse import ArgumentParser, Namespace
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from playwright.sync_api import sync_playwright
+from requests.exceptions import ConnectionError
 
 parser: ArgumentParser
 args: Namespace
@@ -133,8 +134,6 @@ def init_parser():
 
 
 def get_from_url(url: str) -> str:
-    global is_temp
-    is_temp = True
     parsed_url = urlparse(url)
     relative_path = parsed_url.path
     if "chapters" in relative_path:
@@ -143,8 +142,15 @@ def get_from_url(url: str) -> str:
         parsed_url = parsed_url._replace(path=relative_path)
     if not parsed_url.query.startswith("view_full_work"):
         parsed_url = parsed_url._replace(query="view_full_work=true")
-    contents = requests.get(parsed_url.geturl())
-    return contents.text
+    try:
+        contents = requests.get(parsed_url.geturl())
+        return contents.text
+    except ConnectionError:
+        print(
+            "Oops! Looks like something went wrong while trying to request the fic.\nMake sure you're connected to the Internet and that your ISP doesn't block AO3!",
+            file=sys.stderr,
+        )
+        exit(-1)
 
 
 def get_from_file(file: str) -> str:
