@@ -7,98 +7,15 @@ from playwright.sync_api import sync_playwright, Playwright
 parser: ArgumentParser
 args: Namespace
 
-is_temp: bool = False
 filepath: str
-
-pdf_stylesheet: str = """
-@page {
-  size: 110mm 170mm;
-}
-@page :left {
-  margin: 12mm 10mm 20mm 10mm;
-  @bottom-left { content: counter(page) }
-  @top-right { content: string(heading); font-variant: small-caps }
-}
-@page :right {
-  margin: 12mm 10mm 20mm 10mm;
-  @top-left { content: string(heading); font-variant: small-caps }
-  @bottom-right { content: counter(page) }
-}
-@page :blank {
-  @top-right { content: none }
-  @top-left { content: none }
-}
-@page :clean {
-  @top-right { content: none }
-  @top-left { content: none }
-}
-
-img {
-  display: block;
-  object-fit: contain;
-  width: 100%;
-  height: auto;
-}
-
-html {
-  font-size: 8pt;
-}
-body {
-  margin: 0;
-}
-section {
-  break-after: right;
-  padding-top: 25mm;
-}
-aside {
-  display: none;
-}
-
-h1 {
-  break-after: right;
-  font-size: 2.6em;
-  font-weight: normal;
-  margin: 3em 0;
-  page: clean;
-}
-h2 {
-  break-before: always;
-  font-size: 1.4em;
-  font-variant: small-caps;
-  font-weight: normal;
-  margin: 0 0 1em;
-  page: clean;
-  string-set: heading content();
-  text-align: center;
-}
-p {
-  hyphens: auto;
-  margin: 0 0 0.4em;
-  text-align: justify;
-  text-indent: 1em;
-}
-dd {
-  margin: 0 0 0 1em;
-}
-br::after {
-  content: '';
-  display: inline-block;
-  width: 0.78em;
-}
-
-.fullpage {
-  display: none;
-}
-"""
+temp_file: str = "./tmp.html"
 
 ## Filter functions
 
 
-def is_note(tag: Tag) -> bool:
-    return (
-        tag.has_attr("class")
-        and tag.has_attr("id")
-        and ("notes" in tag["class"] or "meta" in tag["class"] or "end" in tag["class"])
+def is_note(css_class) -> bool:
+    return css_class is not None and (
+        "notes" in css_class or "meta" in css_class or "end" in css_class
     )
 
 
@@ -110,7 +27,7 @@ def is_heading(css_class) -> bool:
 
 
 def remove_author_notes(contents: BeautifulSoup):
-    notes = contents.find_all("div", class_=is_note)
+    notes = contents.find_all("div", attrs=is_note)
     for note in notes:
         head = note.find("h2", class_="heading")
 
@@ -141,20 +58,28 @@ def remove_whitespace_paragraphs(contents: BeautifulSoup):
             para.decompose()
 
 
+def inject_css(contents: BeautifulSoup):
+    contents.wrap(Tag(name="body"))
+    contents.wrap(Tag(name="html"))
+    contents.insert(0, Tag(name="head"))
+    contents.find("head").append(
+        Tag(name="link", attrs={"rel": "stylesheet", "href": f"bookify.css"})
+    )
+
+
 def write_to_pdf(input: BeautifulSoup, output: str):
-    # if not filepath.endswith(".pdf"):
-    #     filepath += ".pdf"
-    # css = CSS(string=pdf_stylesheet)
-    # HTML(string=str(input)).write_pdf(target=filepath, stylesheets=[css])
-    # print(f"File saved at: {os.path.abspath(filepath)}")
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+    with open(temp_file, "x", encoding="utf-8") as temp:
+        temp.write(input.prettify())
     with sync_playwright() as playwright:
         chr = playwright.chromium
         browser = chr.launch()
         context = browser.new_context()
         page = context.new_page()
-        page.goto(f"file://{filepath}")
-        page.pdf(path=output)
-        exit(0)
+        page.goto(f"file://{os.path.abspath(temp_file)}")
+        page.pdf(path=output, prefer_css_page_size=True)
+    os.remove(temp_file)
 
 
 def get_fic_metadata(contents: BeautifulSoup) -> dict:
@@ -201,18 +126,11 @@ def get_from_url(url: str) -> str:
     if not parsed_url.query.startswith("view_full_work"):
         parsed_url = parsed_url._replace(query="view_full_work=true")
     contents = requests.get(parsed_url.geturl())
-    if os.path.exists("./tmp.html"):
-        os.remove("./tmp.html")
-    with open("./tmp.html", "x", encoding="utf8") as file:
-        file.write(contents.text)
-    return get_from_file("./tmp.html")
+    return contents.text
 
 
 def get_from_file(file: str) -> str:
-    global filepath
-    filepath = os.path.abspath(file)
-    print(filepath)
-    with open(filepath, "rt", encoding="utf8") as fic:
+    with open(file, "rt", encoding="utf8") as fic:
         return fic.read()
 
 
@@ -237,20 +155,24 @@ if __name__ == "__main__":
         init_parser()
         args = parser.parse_args()
 
-        proc = subprocess.run(['uv', 'run', 'playwright', 'install', '--list'], stdout=subprocess.PIPE)
+        proc = subprocess.run(
+            ["uv", "run", "playwright", "install", "--list"], stdout=subprocess.PIPE
+        )
         if proc.stdout.decode().strip() == "":
             print("Installing Playwright dependencies for PDF conversion...")
-            subprocess.run(['uv', 'run', 'playwright', 'install', 'chromium'])
+            subprocess.run(["uv", "run", "playwright", "install", "chromium"])
 
         parsed_html = parse_fic(args.path)
         data = get_fic_metadata(parsed_html)
         print(f"Bookifying {data['title']} by {data['author']}")
         contents = parsed_html.find("div", id="chapters")
+        # Format document
         if args.no_notes:
             remove_author_notes(contents)
         remove_chapter_text_headings(contents)
         format_headings(contents)
         remove_whitespace_paragraphs(contents)
+        inject_css(contents)
 
         output = f"{data["title"]}.pdf" if args.output is None else args.output
         write_to_pdf(contents, output)
