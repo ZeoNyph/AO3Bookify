@@ -1,0 +1,73 @@
+Screen {
+    background: $background;
+    align: center middle;
+}
+
+#url_in {
+    width: 50vw;
+    height: auto;
+    border: round;
+    background: $background;
+    margin: 1 0 0 0;
+}
+
+#welcome_text {
+    background: $background;
+    color: $text;
+    text-align: center;
+    align: center middle;
+    content-align: center middle;
+    width: auto;
+    height: auto;
+    margin: 1 1;
+    text-style: bold;
+}
+
+#in_opt{
+    align: center middle;
+    width: 50%;
+    height: 50%;
+    text-align: center;
+    content-align: center middle;
+    border: round;
+    background: $background;
+}
+
+#in_opt .option-list--option-highlighted{
+    background: green;
+    color: white;
+}
+
+#load {
+    align: center middle;
+    height: auto;
+    width: auto;
+    padding: 1 1;
+}
+
+#msg {
+    align: center middle;
+    text-align: center;
+}
+
+#msg.info {
+    border: round white;
+}
+
+#msg.-ao3-error {
+    border: round red;
+    text-style: bold;
+    color: $text-error
+}
+
+#msg.success {
+    border: round green;
+}
+
+#in_opt > Option {
+    padding: 1 1;
+    width: auto;
+    height: auto;
+    align: center middle;
+    content-align: center middle;
+}

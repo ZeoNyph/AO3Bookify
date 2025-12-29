@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
+from typing import Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -132,6 +133,17 @@ def init_parser():
     )
     return parser
 
+def verify_url(url: str) -> Tuple[bool, str]:
+    parsed_url = urlparse(url)
+    if not parsed_url.scheme in ("http", "https") or "archiveofourown.org" not in parsed_url.netloc or (parsed_url.scheme == "" and parsed_url.netloc == ""):
+        return (False, "URL must be a valid AO3 link!")
+    path_split = parsed_url.path.split("/")[1:]
+    if not path_split or path_split[0] != "works" or len(path_split) < 2:
+        return (False, "URL must point to a work on AO3!")
+    if not path_split[1].isdigit():
+        return (False, "URL must have a valid work ID!")
+    return (True, "")
+        
 
 def get_from_url(url: str) -> str:
     parsed_url = urlparse(url)
