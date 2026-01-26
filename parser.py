@@ -108,7 +108,7 @@ def get_fic_metadata(contents: BeautifulSoup) -> dict:
         else None
     )
     if not title:
-        title = contents.find("div", class_={"preface", "group"}).h2.get_text().strip()
+        title = contents.find("div", class_={"preface", "group"}).find("h2").get_text().strip()
     author = contents.find("a", rel="author").get_text().strip()
     return {"title": title, "author": author}
 
