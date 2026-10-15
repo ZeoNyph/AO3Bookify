@@ -116,8 +116,11 @@ def get_fic_metadata(contents: BeautifulSoup) -> dict:
         title = meta.h1.get_text().strip()
     # Page saved / fetched from the website
     if not title:
-        title_tag = contents.find(class_="title heading") or contents.find(
-            "h2", class_="title"
+        preface = contents.find("div", class_={"preface", "group"})
+        title_tag = (
+            contents.find(class_="title heading")
+            or contents.find("h2", class_="title")
+            or (preface and preface.find("h2"))
         )
         if title_tag:
             title = title_tag.get_text().strip()
