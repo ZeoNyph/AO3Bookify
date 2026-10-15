@@ -48,7 +48,8 @@ class FormatFicTest(unittest.TestCase):
         self.assertNotIn("A note", text)
         self.assertNotIn("End note", text)
         self.assertEqual(
-            [h.get_text() for h in html.find_all("h2")], ["Chapter 1: Start", "Chapter 2"]
+            [h.get_text() for h in html.find_all("h2")],
+            ["Chapter 1: Start", "Chapter 2"],
         )
 
     def test_notes_kept_by_default(self):
@@ -86,7 +87,9 @@ class OutputPathTest(unittest.TestCase):
         self.dir = Path(tmp.name)
 
     def test_adds_pdf_suffix(self):
-        self.assertEqual(parser.output_path(str(self.dir / "book"), "T").name, "book.pdf")
+        self.assertEqual(
+            parser.output_path(str(self.dir / "book"), "T").name, "book.pdf"
+        )
         # Never the source file itself.
         self.assertEqual(
             parser.output_path(str(self.dir / "fic.html"), "T").name, "fic.html.pdf"

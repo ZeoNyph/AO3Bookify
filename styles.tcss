@@ -17,9 +17,7 @@ Screen {
 }
 
 #banner {
-    width: 100%;
-    content-align: center middle;
-    text-align: center;
+    width: auto;
     color: $accent;
     text-style: bold;
     margin: 1 0 0 0;

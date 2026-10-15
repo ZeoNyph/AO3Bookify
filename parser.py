@@ -3,17 +3,14 @@ import re
 import subprocess
 import sys
 import tempfile
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from pathlib import Path
-from typing import Callable, Tuple
+from typing import Callable
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from playwright.sync_api import sync_playwright
-
-parser: ArgumentParser
-args: Namespace
 
 CSS_FILE = Path(__file__).resolve().parent / "bookify.css"
 USER_AGENT = "AO3Bookify/0.1 (+https://github.com/ZeoNyph/AO3Bookify)"
@@ -151,8 +148,7 @@ def output_path(output: str | None, title: str) -> Path:
     return path
 
 
-def init_parser():
-    global parser
+def build_arg_parser() -> ArgumentParser:
     parser = ArgumentParser(
         prog="AO3Bookify",
         description="Python program that parses a HTML download of an AO3 fic.",
@@ -175,7 +171,7 @@ def is_url(path: str) -> bool:
     return urlparse(path.strip()).scheme in ("http", "https")
 
 
-def verify_url(url: str) -> Tuple[bool, str]:
+def verify_url(url: str) -> tuple[bool, str]:
     parsed_url = urlparse(url.strip())
     if parsed_url.scheme not in ("http", "https") or not (
         parsed_url.netloc == "archiveofourown.org"
@@ -190,7 +186,7 @@ def verify_url(url: str) -> Tuple[bool, str]:
     return (True, "")
 
 
-def verify_file(path: str) -> Tuple[bool, str]:
+def verify_file(path: str) -> tuple[bool, str]:
     file = Path(path.strip()).expanduser()
     if not path.strip():
         return (False, "Please enter a file path.")
@@ -303,18 +299,11 @@ def install_chromium(log: Callable[[str], None] = print):
         raise BookifyError("Failed to install Chromium for PDF conversion.")
 
 
-def check_playwright():
-    if not chromium_installed():
-        print("Installing Playwright dependencies for PDF conversion...")
-        install_chromium()
-
-
 ## Main loop
 
 if __name__ == "__main__":
     try:
-        init_parser()
-        args = parser.parse_args()
+        args = build_arg_parser().parse_args()
 
         if verify_url(args.path)[0]:
             print(
@@ -325,7 +314,9 @@ if __name__ == "__main__":
         print(f"Bookifying {data['title']} by {data['author']}")
         contents = format_fic(parsed_html, args.no_notes)
 
-        check_playwright()
+        if not chromium_installed():
+            print("Installing Playwright dependencies for PDF conversion...")
+            install_chromium()
 
         output = output_path(args.output, data["title"])
         write_to_pdf(contents, str(output))

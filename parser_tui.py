@@ -100,7 +100,8 @@ class FormScreen(Screen):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="form_scroll"):
             with Vertical(id="form"):
-                yield Static(ascii_text, id="banner")
+                with Center():
+                    yield Static(ascii_text, id="banner")
                 yield Label(
                     "Turn an AO3 fic into a nicely formatted, book-sized PDF.",
                     id="tagline",
