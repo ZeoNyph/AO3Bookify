@@ -34,3 +34,9 @@ options:
   -o, --output OUTPUT
   --no-notes           Remove author notes from the output.
 ```
+## Development
+
+Run the tests with:
+```console
+$ uv run python -m unittest discover tests
+```
