@@ -137,8 +137,18 @@ def safe_filename(name: str) -> str:
     return name or "fic"
 
 
-def default_output_name(title: str) -> str:
-    return f"{safe_filename(title)}.pdf"
+def output_path(output: str | None, title: str) -> Path:
+    path = Path(output).expanduser() if output else Path(f"{safe_filename(title)}.pdf")
+    # Always end in .pdf, so "-o fic.html" can't overwrite the source HTML.
+    if path.suffix.lower() != ".pdf":
+        path = path.with_name(path.name + ".pdf")
+    # Default name: never overwrite another fic's PDF with the same title.
+    n = 2
+    while not output and path.exists():
+        path = path.with_name(f"{safe_filename(title)} ({n}).pdf")
+        n += 1
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def init_parser():
@@ -317,8 +327,8 @@ if __name__ == "__main__":
 
         check_playwright()
 
-        output = args.output or default_output_name(data["title"])
-        write_to_pdf(contents, output)
+        output = output_path(args.output, data["title"])
+        write_to_pdf(contents, str(output))
         print(f"Saved to {output}")
     except BookifyError as err:
         print(err, file=sys.stderr)

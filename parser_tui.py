@@ -61,7 +61,7 @@ class FilePicker(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="picker"):
             yield Label("Pick the HTML file of your fic", id="picker_title")
-            yield Label(str(self.start), id="picker_path")
+            yield Label(str(self.start), id="picker_path", markup=False)
             yield HtmlDirectoryTree(self.start, id="picker_tree")
             with Horizontal(classes="buttons"):
                 yield Button("Parent folder", id="picker_up")
@@ -113,7 +113,7 @@ class FormScreen(Screen):
                 with Horizontal(id="path_row"):
                     yield Input(placeholder=URL_PLACEHOLDER, id="path")
                     yield Button("Browse…", id="browse")
-                yield Label("", id="path_msg", classes="hint")
+                yield Label("", id="path_msg", classes="hint", markup=False)
 
                 yield Label("2. Options", classes="section")
                 yield Checkbox("Remove author notes", id="no_notes")
@@ -244,13 +244,13 @@ class ProgressScreen(Screen):
     def compose(self) -> ComposeResult:
         with Vertical(id="progress"):
             yield Label("Bookifying…", id="progress_title")
-            yield Label(self.path, id="progress_source")
+            yield Label(self.path, id="progress_source", markup=False)
             with Vertical(id="steps"):
                 for key, text in STEPS:
                     yield Label(f"  ○  {text}", id=f"step_{key}", classes="step")
             yield LoadingIndicator(id="spinner")
-            yield Label("", id="result")
-            yield RichLog(id="log", wrap=True, markup=True, min_width=20)
+            yield Label("", id="result", markup=False)
+            yield RichLog(id="log", wrap=True, min_width=20)
             with Horizontal(classes="buttons", id="done_buttons"):
                 yield Button("Open PDF", id="open", variant="success")
                 yield Button("Bookify another", id="again", variant="primary")
@@ -304,7 +304,7 @@ class ProgressScreen(Screen):
                 call(self._log, "Downloading from AO3 (big fics can take a while)…")
             soup = parser.load_fic(self.path)
             meta = parser.get_fic_metadata(soup)
-            call(self._log, f"Found [b]{meta['title']}[/b] by {meta['author']}")
+            call(self._log, f"Found {meta['title']} by {meta['author']}")
             call(self._step, "load", "done")
             if worker.is_cancelled:
                 return
@@ -329,12 +329,7 @@ class ProgressScreen(Screen):
 
             current = "pdf"
             call(self._step, "pdf", "running")
-            output = Path(
-                self.output or parser.default_output_name(meta["title"])
-            ).expanduser()
-            if output.suffix.lower() != ".pdf":
-                output = output.with_name(output.name + ".pdf")
-            output.parent.mkdir(parents=True, exist_ok=True)
+            output = parser.output_path(self.output, meta["title"])
             parser.write_to_pdf(contents, str(output))
             call(self._step, "pdf", "done")
 
@@ -350,7 +345,7 @@ class ProgressScreen(Screen):
             call(self._finish, False, str(err))
         except Exception as err:  # show unexpected errors instead of crashing
             call(self._step, current, "failed")
-            call(self._log, f"[red]{type(err).__name__}: {err}[/red]")
+            call(self._log, f"{type(err).__name__}: {err}")
             call(self._finish, False, f"Unexpected error: {err}")
 
     # --- actions ---
