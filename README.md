@@ -10,7 +10,13 @@ A Python script that converts an HTML download of an AO3 fanfiction into a reade
 1. Download the fanfiction you wish to bookify from AO3 (either via clicking Download at the top left corner, then HTML, or by just right clicking the fic when viewing the whole work and selecting Save Page As).
 ![alt text](img/image.png)
   - Alternatively, you can also pass a URL to the fic and AO3Bookify will download its contents automatically.
-2. Run AO3Bookify by running 
+2. Run the interactive terminal app:
+  ```console
+  $ uv run parser_tui.py
+  ```
+  Paste an AO3 link (or pick a downloaded HTML file with **Browse…** / `Ctrl+O`), choose your options and press **Bookify!** (or `Ctrl+B`). Progress is shown step by step, and once the PDF is ready you can open it straight away.
+
+  Alternatively, run AO3Bookify from the command line by running 
   ```console
   $ uv run parser.py
   ```

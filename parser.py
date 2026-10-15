@@ -1,20 +1,27 @@
 import os
+import re
 import subprocess
 import sys
+import tempfile
 from argparse import ArgumentParser, Namespace
-from typing import Tuple
+from pathlib import Path
+from typing import Callable, Tuple
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from playwright.sync_api import sync_playwright
-from requests.exceptions import ConnectionError
 
 parser: ArgumentParser
 args: Namespace
 
-filepath: str
-temp_file: str = "./tmp.html"
+CSS_FILE = Path(__file__).resolve().parent / "bookify.css"
+USER_AGENT = "AO3Bookify/0.1 (+https://github.com/ZeoNyph/AO3Bookify)"
+
+
+class BookifyError(Exception):
+    """An error with a message that can be shown directly to the user."""
+
 
 ## Filter functions
 
@@ -82,36 +89,60 @@ def inject_css(contents: BeautifulSoup):
     contents.wrap(Tag(name="body"))
     contents.wrap(Tag(name="html"))
     contents.insert(0, Tag(name="head"))
-    contents.find("head").append(
-        Tag(name="link", attrs={"rel": "stylesheet", "href": f"bookify.css"})
+    head = contents.find("head")
+    head.append(Tag(name="meta", attrs={"charset": "utf-8"}))
+    head.append(
+        Tag(name="link", attrs={"rel": "stylesheet", "href": CSS_FILE.as_uri()})
     )
 
 
 def write_to_pdf(input: BeautifulSoup, output: str):
-    if os.path.exists(temp_file):
+    # Not using prettify() here: it puts inline tags on their own lines,
+    # which adds stray spaces around italics, links, etc.
+    fd, temp_file = tempfile.mkstemp(suffix=".html", prefix="ao3bookify-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as temp:
+            temp.write("<!DOCTYPE html>\n" + str(input))
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            try:
+                page = browser.new_context().new_page()
+                page.goto(Path(temp_file).as_uri(), wait_until="networkidle")
+                page.pdf(path=output, prefer_css_page_size=True)
+            finally:
+                browser.close()
+    finally:
         os.remove(temp_file)
-    with open(temp_file, "x", encoding="utf-8") as temp:
-        temp.write(input.prettify())
-    with sync_playwright() as playwright:
-        chr = playwright.chromium
-        browser = chr.launch()
-        context = browser.new_context()
-        page = context.new_page()
-        page.goto(f"file://{os.path.abspath(temp_file)}")
-        page.pdf(path=output, prefer_css_page_size=True)
-    os.remove(temp_file)
 
 
 def get_fic_metadata(contents: BeautifulSoup) -> dict:
-    title = (
-        contents.find("div", class_="meta").h1.get_text().strip()
-        if contents.find("div", class_="meta")
-        else None
-    )
+    title = None
+    # HTML download from AO3
+    meta = contents.find("div", class_="meta")
+    if meta and meta.h1:
+        title = meta.h1.get_text().strip()
+    # Page saved / fetched from the website
     if not title:
-        title = contents.find("div", class_={"preface", "group"}).h2.get_text().strip()
-    author = contents.find("a", rel="author").get_text().strip()
-    return {"title": title, "author": author}
+        title_tag = contents.find(class_="title heading") or contents.find(
+            "h2", class_="title"
+        )
+        if title_tag:
+            title = title_tag.get_text().strip()
+    if not title and contents.title:
+        title = contents.title.get_text().split("|")[0].strip()
+
+    author_tag = contents.find("a", rel="author")
+    author = author_tag.get_text().strip() if author_tag else "Anonymous"
+    return {"title": title or "Untitled", "author": author}
+
+
+def safe_filename(name: str) -> str:
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name).strip(" .")
+    return name or "fic"
+
+
+def default_output_name(title: str) -> str:
+    return f"{safe_filename(title)}.pdf"
 
 
 def init_parser():
@@ -133,65 +164,143 @@ def init_parser():
     )
     return parser
 
+
+def is_url(path: str) -> bool:
+    return urlparse(path.strip()).scheme in ("http", "https")
+
+
 def verify_url(url: str) -> Tuple[bool, str]:
-    parsed_url = urlparse(url)
-    if not parsed_url.scheme in ("http", "https") or "archiveofourown.org" not in parsed_url.netloc or (parsed_url.scheme == "" and parsed_url.netloc == ""):
+    parsed_url = urlparse(url.strip())
+    if parsed_url.scheme not in ("http", "https") or not (
+        parsed_url.netloc == "archiveofourown.org"
+        or parsed_url.netloc.endswith(".archiveofourown.org")
+    ):
         return (False, "URL must be a valid AO3 link!")
-    path_split = parsed_url.path.split("/")[1:]
+    path_split = [p for p in parsed_url.path.split("/") if p]
     if not path_split or path_split[0] != "works" or len(path_split) < 2:
         return (False, "URL must point to a work on AO3!")
     if not path_split[1].isdigit():
         return (False, "URL must have a valid work ID!")
     return (True, "")
-        
+
+
+def verify_file(path: str) -> Tuple[bool, str]:
+    file = Path(path.strip()).expanduser()
+    if not path.strip():
+        return (False, "Please enter a file path.")
+    if not file.is_file():
+        return (False, "That file doesn't exist!")
+    if file.suffix.lower() not in (".html", ".htm"):
+        return (False, "File must be an HTML file (.html or .htm)!")
+    return (True, "")
+
+
+def full_work_url(url: str) -> str:
+    parsed_url = urlparse(url.strip())
+    parts = [p for p in parsed_url.path.split("/") if p]
+    # /works/<id>/chapters/<id> -> /works/<id>
+    parsed_url = parsed_url._replace(
+        scheme="https",
+        path="/" + "/".join(parts[:2]),
+        query="view_full_work=true&view_adult=true",
+        fragment="",
+    )
+    return parsed_url.geturl()
+
 
 def get_from_url(url: str) -> str:
-    parsed_url = urlparse(url)
-    relative_path = parsed_url.path
-    if "chapters" in relative_path:
-        parts = relative_path.split("/")
-        relative_path = "/".join(parts[:3])
-        parsed_url = parsed_url._replace(path=relative_path)
-    if not parsed_url.query.startswith("view_full_work"):
-        parsed_url = parsed_url._replace(query="view_full_work=true")
     try:
-        contents = requests.get(parsed_url.geturl())
-        return contents.text
-    except ConnectionError:
-        print(
-            "Oops! Looks like something went wrong while trying to request the fic.\nMake sure you're connected to the Internet and that your ISP doesn't block AO3!",
-            file=sys.stderr,
+        response = requests.get(
+            full_work_url(url), headers={"User-Agent": USER_AGENT}, timeout=120
         )
-        exit(-1)
+    except requests.exceptions.Timeout:
+        raise BookifyError("AO3 took too long to respond. Please try again later.")
+    except requests.exceptions.ConnectionError:
+        raise BookifyError(
+            "Oops! Looks like something went wrong while trying to request the fic.\n"
+            "Make sure you're connected to the Internet and that your ISP doesn't block AO3!"
+        )
+    if response.status_code == 404:
+        raise BookifyError("That work doesn't exist (AO3 returned 404).")
+    if response.status_code == 429:
+        raise BookifyError("AO3 is rate-limiting requests. Wait a bit and try again.")
+    if response.status_code >= 400:
+        raise BookifyError(f"AO3 returned an error (HTTP {response.status_code}).")
+    if "/users/login" in response.url:
+        raise BookifyError(
+            "This work is only visible to logged-in users.\n"
+            "Download it as HTML from AO3 in your browser and use the file option instead."
+        )
+    return response.text
 
 
 def get_from_file(file: str) -> str:
-    with open(file, "rt", encoding="utf8") as fic:
-        return fic.read()
+    try:
+        with open(Path(file.strip()).expanduser(), "rt", encoding="utf8") as fic:
+            return fic.read()
+    except OSError as err:
+        raise BookifyError(f"Couldn't read the file: {err.strerror}")
+    except UnicodeDecodeError:
+        raise BookifyError("Couldn't read the file: it isn't valid UTF-8 text.")
 
 
-def parse_fic(path: str) -> BeautifulSoup:
-    content = ""
-    if path.startswith("https://archiveofourown.org"):
-        print(
-            "Requesting fic data from AO3...\n[Depending on the fic, this may take a while.]"
-        )
+def load_fic(path: str) -> BeautifulSoup:
+    if is_url(path):
+        ok, msg = verify_url(path)
+        if not ok:
+            raise BookifyError(msg)
         content = get_from_url(path)
-    elif path.endswith(".html"):
-        content = get_from_file(path)
     else:
-        print("Path not supported")
+        ok, msg = verify_file(path)
+        if not ok:
+            raise BookifyError(msg)
+        content = get_from_file(path)
     return BeautifulSoup(content, "lxml")
 
 
-def check_playwright():
+def format_fic(soup: BeautifulSoup, no_notes: bool = False) -> Tag:
+    contents = soup.find("div", id="chapters")
+    if contents is None:
+        raise BookifyError(
+            "Couldn't find the fic's chapters in this page.\n"
+            "Make sure it's a full AO3 work (HTML download or 'Entire Work' view)."
+        )
+    if no_notes:
+        remove_author_notes(contents)
+    remove_summary(contents)
+    remove_chapter_text_headings(contents)
+    format_headings(contents)
+    remove_whitespace_paragraphs(contents)
+    inject_css(contents)
+    return contents
+
+
+def chromium_installed() -> bool:
+    try:
+        with sync_playwright() as playwright:
+            return Path(playwright.chromium.executable_path).exists()
+    except Exception:
+        return False
+
+
+def install_chromium(log: Callable[[str], None] = print):
     proc = subprocess.run(
-        ["uv", "run", "playwright", "install", "--list"], stdout=subprocess.PIPE
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
-    out = proc.stdout.decode().strip()
-    if out == "" or proc.returncode != 0:
+    for line in proc.stdout.splitlines():
+        if line.strip():
+            log(line.strip())
+    if proc.returncode != 0:
+        raise BookifyError("Failed to install Chromium for PDF conversion.")
+
+
+def check_playwright():
+    if not chromium_installed():
         print("Installing Playwright dependencies for PDF conversion...")
-        subprocess.run(["uv", "run", "playwright", "install", "chromium"])
+        install_chromium()
 
 
 ## Main loop
@@ -201,23 +310,23 @@ if __name__ == "__main__":
         init_parser()
         args = parser.parse_args()
 
-        check_playwright()
-
-        parsed_html = parse_fic(args.path)
+        if verify_url(args.path)[0]:
+            print(
+                "Requesting fic data from AO3...\n[Depending on the fic, this may take a while.]"
+            )
+        parsed_html = load_fic(args.path)
         data = get_fic_metadata(parsed_html)
         print(f"Bookifying {data['title']} by {data['author']}")
-        contents = parsed_html.find("div", id="chapters")
-        # Format document
-        if args.no_notes:
-            remove_author_notes(contents)
-        remove_summary(contents)
-        remove_chapter_text_headings(contents)
-        format_headings(contents)
-        remove_whitespace_paragraphs(contents)
-        inject_css(contents)
+        contents = format_fic(parsed_html, args.no_notes)
 
-        output = f"{data['title']}.pdf" if args.output is None else args.output
+        check_playwright()
+
+        output = args.output or default_output_name(data["title"])
         write_to_pdf(contents, output)
+        print(f"Saved to {output}")
+    except BookifyError as err:
+        print(err, file=sys.stderr)
+        exit(-1)
     except KeyboardInterrupt:
         print("\nExiting AO3Bookify...")
         exit(1)

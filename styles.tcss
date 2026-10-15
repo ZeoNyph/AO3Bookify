@@ -3,71 +3,192 @@ Screen {
     align: center middle;
 }
 
-#url_in {
-    width: 50vw;
+/* ---------- Form ---------- */
+
+#form_scroll {
+    align: center top;
+}
+
+#form {
+    width: 80;
+    max-width: 100%;
     height: auto;
-    border: round;
-    background: $background;
+    padding: 0 2;
+}
+
+#banner {
+    width: 100%;
+    content-align: center middle;
+    text-align: center;
+    color: $accent;
+    text-style: bold;
     margin: 1 0 0 0;
 }
 
-#welcome_text {
-    background: $background;
-    color: $text;
+#tagline {
+    width: 100%;
     text-align: center;
-    align: center middle;
-    content-align: center middle;
-    width: auto;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+.section {
+    text-style: bold;
+    color: $primary;
+    margin: 1 0 0 0;
+}
+
+#source {
+    width: 100%;
+    layout: horizontal;
+    border: round $panel;
+}
+
+#path_row {
     height: auto;
-    margin: 1 1;
+}
+
+#path {
+    width: 1fr;
+}
+
+#path.-invalid {
+    border: tall $error;
+}
+
+#browse {
+    margin-left: 1;
+}
+
+.hint {
+    color: $text-muted;
+    height: auto;
+    padding: 0 1;
+}
+
+.hint.-error {
+    color: $text-error;
     text-style: bold;
 }
 
-#in_opt{
+#no_notes {
+    width: 100%;
+    margin: 0 0 1 0;
+}
+
+#go {
+    margin: 2 0 1 0;
+    min-width: 20;
+}
+
+/* ---------- File picker ---------- */
+
+FilePicker {
     align: center middle;
-    width: 50%;
-    height: 50%;
-    text-align: center;
-    content-align: center middle;
-    border: round;
-    background: $background;
+    background: $background 60%;
 }
 
-#in_opt .option-list--option-highlighted{
-    background: green;
-    color: white;
+#picker {
+    width: 80%;
+    height: 80%;
+    border: round $accent;
+    background: $surface;
+    padding: 0 1;
 }
 
-#load {
-    align: center middle;
-    height: auto;
-    width: auto;
-    padding: 1 1;
-}
-
-#msg {
-    align: center middle;
-    text-align: center;
-}
-
-#msg.info {
-    border: round white;
-}
-
-#msg.-ao3-error {
-    border: round red;
+#picker_title {
     text-style: bold;
-    color: $text-error
+    width: 100%;
+    text-align: center;
 }
 
-#msg.success {
-    border: round green;
+#picker_path {
+    color: $text-muted;
 }
 
-#in_opt > Option {
-    padding: 1 1;
-    width: auto;
+#picker_tree {
+    height: 1fr;
+}
+
+/* ---------- Progress ---------- */
+
+#progress {
+    width: 80;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
+    border: round $accent;
+    padding: 1 2;
+}
+
+#progress_title {
+    text-style: bold;
+    width: 100%;
+    text-align: center;
+    color: $success;
+}
+
+#progress_title.-error {
+    color: $text-error;
+}
+
+#progress_source {
+    width: 100%;
+    text-align: center;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+#steps {
+    height: auto;
+}
+
+.step {
+    color: $text-muted;
+}
+
+.step.-running {
+    color: $warning;
+    text-style: bold;
+}
+
+.step.-done {
+    color: $success;
+}
+
+.step.-failed {
+    color: $text-error;
+    text-style: bold;
+}
+
+#spinner {
+    height: 3;
+}
+
+#result {
+    width: 100%;
+    margin: 1 0;
+    padding: 0 1;
+    border: round $success;
+}
+
+#result.-error {
+    border: round $error;
+    color: $text-error;
+}
+
+#log {
+    height: 8;
+    border: round $panel;
+    margin-top: 1;
+}
+
+.buttons {
     height: auto;
     align: center middle;
-    content-align: center middle;
+    margin-top: 1;
+}
+
+.buttons Button {
+    margin: 0 1;
 }
