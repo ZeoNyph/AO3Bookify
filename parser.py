@@ -25,42 +25,36 @@ class BookifyError(Exception):
 
 ## Filter functions
 
-
-def is_note(css_class) -> bool:
-    return css_class is not None and (
-        "notes" in css_class or "meta" in css_class or "end" in css_class
-    )
+NOTE_CLASSES = {"notes", "endnotes", "meta", "end"}
+HEADING_CLASSES = {"heading", "title"}
+SUMMARY_CLASSES = {"summary"}
 
 
-def is_heading(css_class) -> bool:
-    return css_class is not None and ("heading" in css_class or "title" in css_class)
+def has_class(tag: Tag, names: set) -> bool:
+    # Exact class names only, and never inside the fic text itself: authors use
+    # their own classes there (e.g. "subtitle", "calendar") via work skins.
+    # (#chapters itself is also .userstuff in AO3 downloads, so it doesn't count.)
+    text = tag.find_parent(lambda t: has_userstuff(t) and t.get("id") != "chapters")
+    return bool(names & set(tag.get("class") or [])) and text is None
 
 
-def is_summary(css_class) -> bool:
-    return css_class is not None and "summary" in css_class
+def has_userstuff(tag: Tag) -> bool:
+    return "userstuff" in (tag.get("class") or [])
 
 
 ## Helper functions
 
 
-def remove_summary(contents: BeautifulSoup):
-    summaries = contents.find_all("div", attrs=is_summary)
-    for summary in summaries:
-        head = summary.find("h2", class_="heading")
+def remove_blocks(contents: BeautifulSoup, names: set):
+    blocks = contents.find_all(lambda t: t.name == "div" and has_class(t, names))
+    for block in blocks:
+        if block.decomposed:  # was nested inside a block removed earlier
+            continue
+        head = block.find("h2", class_="heading")
 
         if head:
-            summary.insert_before(head)
-        summary.decompose()
-
-
-def remove_author_notes(contents: BeautifulSoup):
-    notes = contents.find_all("div", attrs=is_note)
-    for note in notes:
-        head = note.find("h2", class_="heading")
-
-        if head:
-            note.insert_before(head)
-        note.decompose()
+            block.insert_before(head)
+        block.decompose()
 
 
 def remove_chapter_text_headings(contents: BeautifulSoup):
@@ -70,12 +64,14 @@ def remove_chapter_text_headings(contents: BeautifulSoup):
 
 
 def format_headings(contents: BeautifulSoup):
-    headings = contents.find_all(class_=is_heading)
+    headings = contents.find_all(lambda t: has_class(t, HEADING_CLASSES))
     for heading in headings:
         a_text = heading.a.extract().get_text() if heading.a else ""
         heading_text = heading.get_text()
         heading.string = a_text + heading_text.strip()
-        heading.name = "strong" if heading.find_parent(is_note) else "h2"
+        # Not "meta": in AO3 downloads it also wraps the chapter heading.
+        in_note = heading.find_parent(lambda t: has_class(t, NOTE_CLASSES - {"meta"}))
+        heading.name = "strong" if in_note else "h2"
 
 
 def remove_whitespace_paragraphs(contents: BeautifulSoup):
@@ -266,8 +262,8 @@ def format_fic(soup: BeautifulSoup, no_notes: bool = False) -> Tag:
             "Make sure it's a full AO3 work (HTML download or 'Entire Work' view)."
         )
     if no_notes:
-        remove_author_notes(contents)
-    remove_summary(contents)
+        remove_blocks(contents, NOTE_CLASSES)
+    remove_blocks(contents, SUMMARY_CLASSES)
     remove_chapter_text_headings(contents)
     format_headings(contents)
     remove_whitespace_paragraphs(contents)
