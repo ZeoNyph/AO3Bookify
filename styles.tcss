@@ -1,0 +1,192 @@
+Screen {
+    background: $background;
+    align: center middle;
+}
+
+/* ---------- Form ---------- */
+
+#form_scroll {
+    align: center top;
+}
+
+#form {
+    width: 80;
+    max-width: 100%;
+    height: auto;
+    padding: 0 2;
+}
+
+#banner {
+    width: auto;
+    color: $accent;
+    text-style: bold;
+    margin: 1 0 0 0;
+}
+
+#tagline {
+    width: 100%;
+    text-align: center;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+.section {
+    text-style: bold;
+    color: $primary;
+    margin: 1 0 0 0;
+}
+
+#source {
+    width: 100%;
+    layout: horizontal;
+    border: round $panel;
+}
+
+#path_row {
+    height: auto;
+}
+
+#path {
+    width: 1fr;
+}
+
+#path.-invalid {
+    border: tall $error;
+}
+
+#browse {
+    margin-left: 1;
+}
+
+.hint {
+    color: $text-muted;
+    height: auto;
+    padding: 0 1;
+}
+
+.hint.-error {
+    color: $text-error;
+    text-style: bold;
+}
+
+#no_notes {
+    width: 100%;
+    margin: 0 0 1 0;
+}
+
+#go {
+    margin: 2 0 1 0;
+    min-width: 20;
+}
+
+/* ---------- File picker ---------- */
+
+FilePicker {
+    align: center middle;
+    background: $background 60%;
+}
+
+#picker {
+    width: 80%;
+    height: 80%;
+    border: round $accent;
+    background: $surface;
+    padding: 0 1;
+}
+
+#picker_title {
+    text-style: bold;
+    width: 100%;
+    text-align: center;
+}
+
+#picker_path {
+    color: $text-muted;
+}
+
+#picker_tree {
+    height: 1fr;
+}
+
+/* ---------- Progress ---------- */
+
+#progress {
+    width: 80;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
+    border: round $accent;
+    padding: 1 2;
+}
+
+#progress_title {
+    text-style: bold;
+    width: 100%;
+    text-align: center;
+    color: $success;
+}
+
+#progress_title.-error {
+    color: $text-error;
+}
+
+#progress_source {
+    width: 100%;
+    text-align: center;
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+#steps {
+    height: auto;
+}
+
+.step {
+    color: $text-muted;
+}
+
+.step.-running {
+    color: $warning;
+    text-style: bold;
+}
+
+.step.-done {
+    color: $success;
+}
+
+.step.-failed {
+    color: $text-error;
+    text-style: bold;
+}
+
+#spinner {
+    height: 3;
+}
+
+#result {
+    width: 100%;
+    margin: 1 0;
+    padding: 0 1;
+    border: round $success;
+}
+
+#result.-error {
+    border: round $error;
+    color: $text-error;
+}
+
+#log {
+    height: 8;
+    border: round $panel;
+    margin-top: 1;
+}
+
+.buttons {
+    height: auto;
+    align: center middle;
+    margin-top: 1;
+}
+
+.buttons Button {
+    margin: 0 1;
+}
