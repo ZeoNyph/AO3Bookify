@@ -18,6 +18,7 @@ FIC = """
   <div class="meta group">
     <h2 class="heading">Chapter 1: Start</h2>
     <div class="summary"><p>Summary:</p><blockquote>Chapter summary</blockquote></div>
+    <p>Chapter Summary</p><blockquote class="userstuff">Real summary</blockquote>
     <p>Chapter Notes</p><blockquote class="userstuff">A note</blockquote>
   </div>
   <div class="userstuff">
@@ -46,6 +47,7 @@ class FormatFicTest(unittest.TestCase):
         self.assertIn("Monday: the big game", text)
         self.assertIn("Texts from Bob", text)
         self.assertNotIn("A note", text)
+        self.assertNotIn("Real summary", text)
         self.assertNotIn("End note", text)
         self.assertEqual(
             [h.get_text() for h in html.find_all("h2")],
@@ -56,6 +58,7 @@ class FormatFicTest(unittest.TestCase):
         html = bookify(no_notes=False)
         text = html.get_text()
         self.assertIn("A note", text)
+        self.assertIn("Real summary", text)
         self.assertIn("End note", text)
         self.assertNotIn("Chapter summary", text)
         self.assertNotIn("Chapter Text", text)
